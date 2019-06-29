@@ -3,10 +3,16 @@ provider "aws" {
   region     = "us-east-1"
 }
 
+
+variable "security_groups" {
+  type    = list(string)
+}
+
+
 resource "aws_instance" "instance-01" {
   ami           = "ami-04d564b044eb0e5a0"
   instance_type = "t2.micro"
-  key_name = "key-01"
+  key_name = "centOS"
 
   root_block_device {
     volume_type = "gp2"
@@ -20,9 +26,11 @@ resource "aws_instance" "instance-01" {
     delete_on_termination = true
     encrypted = true
   }
-
+  vpc_security_group_ids = var.security_groups 
+  
   iam_instance_profile = "${aws_iam_instance_profile.ec2_profile.name}"
   
+  user_data = "${file("bootstrap.sh")}"
  
   tags = {
     Name = "terraform-instance"
@@ -31,11 +39,11 @@ resource "aws_instance" "instance-01" {
 }
 
 
-
 resource "aws_iam_role" "ec2_firehose_access_role" {
   name               = "firehose-role-tf"
   assume_role_policy = "${file("role-policy.json")}"
 }
+
 
 resource "aws_iam_policy" "policy" {
   name        = "firehose-access-policy"
@@ -43,11 +51,13 @@ resource "aws_iam_policy" "policy" {
   policy      = "${file("policy-firehose.json")}"
 }
 
+
 resource "aws_iam_policy_attachment" "policy-attach" {
   name       = "policy-attachment"
   roles      = ["${aws_iam_role.ec2_firehose_access_role.name}"]
   policy_arn = "${aws_iam_policy.policy.arn}"
 }
+
 
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "ec2_profile"
